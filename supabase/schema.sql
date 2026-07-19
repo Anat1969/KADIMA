@@ -11,6 +11,7 @@ create table if not exists departments (
 
 create table if not exists tasks (
   id uuid primary key default uuid_generate_v4(),
+  user_id uuid references auth.users(id) on delete cascade default auth.uid(),
   name text not null,
   department text default '',
   contact text default '',
@@ -58,6 +59,10 @@ create trigger tasks_updated_at
   before update on tasks
   for each row execute function update_updated_at();
 
+-- למסד נתונים שכבר הורץ בו הסכמה הישנה: הוספת העמודה בדיעבד.
+alter table tasks add column if not exists user_id uuid
+  references auth.users(id) on delete cascade default auth.uid();
+
 -- Realtime: שידור שינויים בטבלאות לכל המכשירים המחוברים.
 -- ניתן להרצה חוזרת: מדלג על טבלה שכבר משודרת.
 do $$
@@ -81,12 +86,34 @@ alter table task_steps enable row level security;
 alter table activity_log enable row level security;
 alter table departments enable row level security;
 
--- זמני: פתוח לכל. להחליף במדיניות לפי משתמש כשמוסיפים Auth.
+-- מדיניות לפי משתמש: כל אחת רואה ועורכת רק את הרשומות שלה.
+-- הסרת המדיניות הפתוחה הישנה אם קיימת.
 drop policy if exists "Allow all on tasks" on tasks;
-create policy "Allow all on tasks" on tasks for all using (true) with check (true);
 drop policy if exists "Allow all on task_steps" on task_steps;
-create policy "Allow all on task_steps" on task_steps for all using (true) with check (true);
 drop policy if exists "Allow all on activity_log" on activity_log;
-create policy "Allow all on activity_log" on activity_log for all using (true) with check (true);
 drop policy if exists "Allow all on departments" on departments;
-create policy "Allow all on departments" on departments for all using (true) with check (true);
+
+drop policy if exists "Own tasks" on tasks;
+create policy "Own tasks" on tasks for all
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- טבלאות הבת נגזרות דרך המשימה שאליה הן שייכות.
+drop policy if exists "Own task steps" on task_steps;
+create policy "Own task steps" on task_steps for all
+  using (exists (select 1 from tasks t where t.id = task_steps.task_id and t.user_id = auth.uid()))
+  with check (exists (select 1 from tasks t where t.id = task_steps.task_id and t.user_id = auth.uid()));
+
+drop policy if exists "Own activity log" on activity_log;
+create policy "Own activity log" on activity_log for all
+  using (exists (select 1 from tasks t where t.id = activity_log.task_id and t.user_id = auth.uid()))
+  with check (exists (select 1 from tasks t where t.id = activity_log.task_id and t.user_id = auth.uid()));
+
+-- מינהלים הם רשימה משותפת לקריאה בלבד למשתמשים מחוברים.
+drop policy if exists "Read departments" on departments;
+create policy "Read departments" on departments for select
+  using (auth.role() = 'authenticated');
+
+-- אינדקסים לשאילתות שהמדיניות מייצרת.
+create index if not exists tasks_user_id_idx on tasks(user_id);
+create index if not exists task_steps_task_id_idx on task_steps(task_id);
+create index if not exists activity_log_task_id_idx on activity_log(task_id);

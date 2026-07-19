@@ -32,6 +32,7 @@ interface KadimaState {
   setFilter: (patch: Partial<Filters>) => void;
   setSort: (key: SortKey) => void;
   subscribe: () => () => void;
+  reset: () => void;
 }
 
 // מזהי רשומות שנכתבו מקומית ממש עכשיו — כדי שאירוע realtime חוזר לא ידרוס עריכה פעילה.
@@ -76,6 +77,10 @@ export const useKadima = create<KadimaState>((set, get) => ({
       set({ tasks: seedTasks(), loaded: true });
       return;
     }
+    // בלי משתמש מחובר ה-RLS יחזיר רשימה ריקה — לא מסמנים loaded,
+    // כדי שהטעינה תרוץ שוב אחרי ההתחברות.
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) return;
     const { data: tasks } = await supabase.from("tasks").select("*").order("due_date");
     const { data: steps } = await supabase.from("task_steps").select("*").order("order_index");
     const byTask = new Map<string, TaskStep[]>();
@@ -95,7 +100,8 @@ export const useKadima = create<KadimaState>((set, get) => ({
     set((s) => ({ tasks: [task, ...s.tasks] }));
     if (supabase) {
       const { steps, ...row } = task;
-      await supabase.from("tasks").insert(row);
+      const { data: auth } = await supabase.auth.getUser();
+      await supabase.from("tasks").insert({ ...row, user_id: auth.user?.id });
     }
     return task;
   },
@@ -175,6 +181,8 @@ export const useKadima = create<KadimaState>((set, get) => ({
 
   setSort: (key) =>
     set((s) => (s.sortKey === key ? { sortAsc: !s.sortAsc } : { sortKey: key, sortAsc: true })),
+
+  reset: () => set({ tasks: [], loaded: false }),
 
   subscribe: () => {
     if (!supabase) return () => {};

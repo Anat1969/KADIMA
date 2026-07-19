@@ -12,6 +12,7 @@ export interface TaskStep {
 
 export interface Task {
   id: string;
+  user_id?: string;
   name: string;
   department: string;
   contact: string;
