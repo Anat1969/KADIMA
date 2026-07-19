@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import NavTabs from "@/components/NavTabs";
 import DemoBanner from "@/components/DemoBanner";
+import StoreBridge from "@/components/StoreBridge";
 
 export const metadata: Metadata = {
   title: "קדימה — ניהול משימות ויוזמות",
@@ -12,6 +13,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="he" dir="rtl">
       <body>
+        <StoreBridge />
         <div className="max-w-6xl mx-auto px-4 pb-16">
           <header className="pt-8 pb-4 flex items-baseline justify-between">
             <div>

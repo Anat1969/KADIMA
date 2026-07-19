@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { useKadima, selectVisibleTasks, selectDepartments } from "@/lib/store";
 import { STATUS_MAP, TYPE_MAP } from "@/lib/constants";
 import type { SortKey, TaskStatus, TaskType } from "@/lib/types";
@@ -114,8 +115,11 @@ export default function TablePage() {
                 <td className="px-2 py-1 min-w-52">
                   <input className="field" value={t.next_step} onChange={(e) => updateTask(t.id, { next_step: e.target.value })} />
                 </td>
-                <td className="px-2 py-1 text-left">
-                  <button className="text-xs text-draft hover:text-delayed" onClick={() => deleteTask(t.id)}>
+                <td className="px-2 py-1 text-left whitespace-nowrap">
+                  <Link href={"/task/" + t.id} className="text-xs text-accent hover:underline">
+                    פתיחה
+                  </Link>
+                  <button className="text-xs text-draft hover:text-delayed ms-3" onClick={() => deleteTask(t.id)}>
                     מחיקה
                   </button>
                 </td>

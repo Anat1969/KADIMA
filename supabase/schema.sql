@@ -58,6 +58,24 @@ create trigger tasks_updated_at
   before update on tasks
   for each row execute function update_updated_at();
 
+-- Realtime: שידור שינויים בטבלאות לכל המכשירים המחוברים.
+-- ניתן להרצה חוזרת: מדלג על טבלה שכבר משודרת.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'tasks'
+  ) then
+    alter publication supabase_realtime add table tasks;
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'task_steps'
+  ) then
+    alter publication supabase_realtime add table task_steps;
+  end if;
+end $$;
+
 alter table tasks enable row level security;
 alter table task_steps enable row level security;
 alter table activity_log enable row level security;
