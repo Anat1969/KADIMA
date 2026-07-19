@@ -7,7 +7,7 @@ export default function DemoBanner() {
   if (!demoMode) return null;
   return (
     <div className="mt-4 text-xs text-waiting bg-waitingBg border border-line rounded px-3 py-2">
-      מצב הדגמה — הנתונים בזיכרון בלבד. חברי Supabase בקובץ .env.local לשמירה קבועה.
+      מצב הדגמה — הנתונים בזיכרון בלבד ואינם נשמרים. לשמירה קבועה יש להפעיל התחברות ב-Supabase.
     </div>
   );
 }

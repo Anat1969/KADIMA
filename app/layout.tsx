@@ -3,8 +3,6 @@ import "./globals.css";
 import NavTabs from "@/components/NavTabs";
 import DemoBanner from "@/components/DemoBanner";
 import StoreBridge from "@/components/StoreBridge";
-import AuthGate from "@/components/AuthGate";
-import SignOut from "@/components/SignOut";
 
 export const metadata: Metadata = {
   title: "קדימה — ניהול משימות ויוזמות",
@@ -17,18 +15,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <StoreBridge />
         <div className="max-w-6xl mx-auto px-4 pb-16">
-          <header className="pt-8 pb-4 flex items-baseline justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">קדימה</h1>
-              <p className="text-sm text-draft mt-1">תמיד צעד אחד לפני</p>
-            </div>
-            <SignOut />
+          <header className="pt-8 pb-4">
+            <h1 className="text-2xl font-semibold tracking-tight">קדימה</h1>
+            <p className="text-sm text-draft mt-1">תמיד צעד אחד לפני</p>
           </header>
-          <AuthGate>
-            <NavTabs />
-            <DemoBanner />
-            <main className="mt-6">{children}</main>
-          </AuthGate>
+          <NavTabs />
+          <DemoBanner />
+          <main className="mt-6">{children}</main>
         </div>
       </body>
     </html>

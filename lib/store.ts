@@ -78,10 +78,13 @@ export const useKadima = create<KadimaState>((set, get) => ({
       return;
     }
     try {
-      // בלי משתמש מחובר ה-RLS יחזיר רשימה ריקה — לא מסמנים loaded,
-      // כדי שהטעינה תרוץ שוב אחרי ההתחברות.
+      // בלי משתמש מחובר ה-RLS יחזיר רשימה ריקה. במקום מסך ריק —
+      // נופלים לנתוני הדגמה, כך שהאפליקציה תמיד שמישה.
       const { data: auth } = await supabase.auth.getUser();
-      if (!auth.user) return;
+      if (!auth.user) {
+        set({ tasks: seedTasks(), loaded: true, demoMode: true });
+        return;
+      }
       const { data: tasks } = await supabase.from(TABLES.tasks).select("*").order("due_date");
       const { data: steps } = await supabase.from(TABLES.taskSteps).select("*").order("order_index");
       const byTask = new Map<string, TaskStep[]>();
