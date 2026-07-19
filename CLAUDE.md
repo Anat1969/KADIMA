@@ -42,6 +42,13 @@ npm run dev
 **פריסה** — GitHub repo בשם `kadima`, חיבור Vercel, ושלושה משתני סביבה ב-Vercel:
 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`.
 
+## הפרדת מסד הנתונים — קריטי
+פרויקט ה-Supabase (`neo-gallery-spark`) **משותף עם אפליקציה אחרת** שיושבת בסכמה `public`
+ויש לה טבלת `tasks` משלה עם מבנה שונה. קדימה יושבת בסכמה נפרדת בשם `kadima`.
+- `lib/supabase/client.ts` מגדיר `db: { schema: KADIMA_SCHEMA }` — אל תסירי.
+- מנוי ה-realtime ב-`lib/store.ts` מסנן לפי `KADIMA_SCHEMA` — אל תחזירי ל-`public`.
+- `supabase/schema.sql` כותב רק ל-`kadima`. אל תשני אותו כך שיכתוב ל-`public`.
+
 ## הערות תחזוקה
 - `ANTHROPIC_API_KEY` — צד שרת בלבד, לעולם לא בקומפוננטת לקוח ולא עם קידומת `NEXT_PUBLIC_`.
 - מסכי ה-AI מתוכננים לעבוד גם בלי מפתח — אל תשברי את מסלול הנפילה הזה.

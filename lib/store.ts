@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import type { Task, TaskStep, TaskStatus, SortKey } from "./types";
-import { supabase, hasSupabase } from "./supabase/client";
+import { supabase, hasSupabase, KADIMA_SCHEMA } from "./supabase/client";
 import { seedTasks } from "./seed";
 import { uid, daysLeft } from "./utils";
 import { STATUS_ORDER } from "./constants";
@@ -197,7 +197,7 @@ export const useKadima = create<KadimaState>((set, get) => ({
 
     const channel = client
       .channel("kadima")
-      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, (payload) => {
+      .on("postgres_changes", { event: "*", schema: KADIMA_SCHEMA, table: "tasks" }, (payload) => {
         const row = (payload.new ?? payload.old) as Task;
         if (!row?.id || isEcho(row.id)) return;
         if (payload.eventType === "DELETE") {
@@ -212,7 +212,7 @@ export const useKadima = create<KadimaState>((set, get) => ({
           return { tasks: [{ ...row, steps: [] }, ...s.tasks] };
         });
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "task_steps" }, (payload) => {
+      .on("postgres_changes", { event: "*", schema: KADIMA_SCHEMA, table: "task_steps" }, (payload) => {
         const row = (payload.new ?? payload.old) as TaskStep;
         if (!row?.task_id || isEcho(row.task_id)) return;
         refetchSteps(row.task_id);
