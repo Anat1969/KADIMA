@@ -31,13 +31,21 @@ npm run dev
 9. commit אטומי, הודעות באנגלית בזמן הווה ("add report export").
 10. לא דורסים עיצוב קיים — מרחיבים.
 
-## שלבים הבאים (לפי סדר)
-1. **מסך רשומה בודדת** — `app/task/[id]/page.tsx`: כל השדות, שלבי ביניים עם הוספה/עריכה, חומר גלם ותוצרים.
-2. **Realtime** — subscription של Supabase ב-store כך ששני מכשירים מסונכרנים.
-3. **AI Ingestion** — route handler `app/api/ingest/route.ts` שמקבל טקסט חופשי, קורא ל-Claude API (מפתח ב-env בצד שרת בלבד), ומחזיר name/department/contact/dates/next_step מוצעים לאישור.
-4. **Ghost Draft** — כפתור "נסחי טיוטה" ברשומה: מייל תשובה / סיכום למנכ"ל.
-5. **Auth** — Supabase Auth + החלפת מדיניות ה-RLS הפתוחה במדיניות לפי משתמש.
-6. **פריסה** — GitHub repo בשם `kadima`, חיבור Vercel, משתני סביבה ב-Vercel.
+## מה נבנה (שלבים 1–5 הושלמו)
+1. **מסך רשומה בודדת** — `app/task/[id]/page.tsx`: כל השדות, שלבי ביניים עם הוספה/עריכה/מחיקה, חומר גלם ותוצרים.
+2. **Realtime** — `subscribe()` ב-store, עם שמירה מפני לולאת הד (`markLocal`/`isEcho`). מותקן פעם אחת ב-`components/StoreBridge.tsx`.
+3. **AI Ingestion** — `app/api/ingest/route.ts`. תיבת הקליטה מציגה כרטיס "הנה מה שהבנתי" לאישור או תיקון. בלי `ANTHROPIC_API_KEY` נופלת אוטומטית לקליטה הפשוטה.
+4. **Ghost Draft** — `components/DraftBox.tsx` + `app/api/draft/route.ts`: מייל תשובה / סיכום למנכ"ל, עריכה והעתקה.
+5. **Auth** — `components/AuthGate.tsx` + מדיניות RLS לפי משתמש ב-`supabase/schema.sql`.
+
+## השלב הבא
+**פריסה** — GitHub repo בשם `kadima`, חיבור Vercel, ושלושה משתני סביבה ב-Vercel:
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`.
+
+## הערות תחזוקה
+- `ANTHROPIC_API_KEY` — צד שרת בלבד, לעולם לא בקומפוננטת לקוח ולא עם קידומת `NEXT_PUBLIC_`.
+- מסכי ה-AI מתוכננים לעבוד גם בלי מפתח — אל תשברי את מסלול הנפילה הזה.
+- הרצת `supabase/schema.sql` מחדש בטוחה: כל ההגדרות אידמפוטנטיות.
 
 ## בדיקה לפני כל commit
 `npm run build` חייב לעבור נקי. בדקי את ארבעת המסכים ידנית ב-RTL.
