@@ -1,0 +1,32 @@
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@300;400;500;600;700&display=swap");
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  direction: rtl;
+}
+
+body {
+  @apply bg-paper text-ink font-hebrew antialiased;
+}
+
+.card {
+  @apply bg-surface border border-line rounded-lg;
+}
+
+.field {
+  @apply w-full bg-transparent border border-transparent rounded px-2 py-1 focus:border-line focus:bg-surface focus:outline-none transition-colors;
+}
+
+.btn {
+  @apply px-4 py-2 rounded-md border border-line bg-surface hover:border-ink transition-colors text-sm;
+}
+
+.btn-primary {
+  @apply px-4 py-2 rounded-md bg-accent text-white hover:opacity-90 transition-opacity text-sm;
+}
