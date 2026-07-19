@@ -17,12 +17,32 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       setChecking(false);
       return;
     }
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
+    let alive = true;
+
+    // גם אם הבדיקה נכשלת או נתקעת — לא נשארים על "טוען" לנצח.
+    const settle = (s: Session | null) => {
+      if (!alive) return;
+      setSession(s);
       setChecking(false);
+    };
+
+    const guard = setTimeout(() => settle(null), 8000);
+
+    supabase.auth
+      .getSession()
+      .then(({ data }) => settle(data.session))
+      .catch(() => settle(null))
+      .finally(() => clearTimeout(guard));
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+      if (alive) setSession(s);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
-    return () => sub.subscription.unsubscribe();
+
+    return () => {
+      alive = false;
+      clearTimeout(guard);
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   // במצב הדגמה אין התחברות — האפליקציה פתוחה עם נתוני seed.
@@ -55,7 +75,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
         <span className="block text-xs text-draft mb-1">כתובת מייל</span>
         <input
           type="email"
-          className="field border-line"
+          className="field-visible"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
@@ -64,7 +84,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
         <span className="block text-xs text-draft mb-1">סיסמה</span>
         <input
           type="password"
-          className="field border-line"
+          className="field-visible"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />

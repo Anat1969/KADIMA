@@ -88,14 +88,14 @@ export default function TablePage() {
                 <td className="px-2 py-1 min-w-32">
                   <input className="field" value={t.contact} onChange={(e) => updateTask(t.id, { contact: e.target.value })} />
                 </td>
-                <td className="px-2 py-1">
+                <td className="px-2 py-1 min-w-24">
                   <select className="field" value={t.type} onChange={(e) => updateTask(t.id, { type: e.target.value as TaskType })}>
                     {Object.entries(TYPE_MAP).map(([k, v]) => (
                       <option key={k} value={k}>{v}</option>
                     ))}
                   </select>
                 </td>
-                <td className="px-2 py-1">
+                <td className="px-2 py-1 min-w-28">
                   <select
                     className={"field font-medium " + STATUS_MAP[t.status].fg}
                     value={t.status}

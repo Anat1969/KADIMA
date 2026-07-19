@@ -23,6 +23,12 @@ body {
   @apply w-full bg-transparent border border-transparent rounded px-2 py-1 focus:border-line focus:bg-surface focus:outline-none transition-colors;
 }
 
+/* טפסים אמיתיים (התחברות, קליטה) — שדה שנראה כשדה גם לפני שנוגעים בו.
+   בטבלה ובמסך הרשומה נשארת העריכה השקופה של .field. */
+.field-visible {
+  @apply w-full bg-surface border border-line rounded px-3 py-2 focus:border-ink focus:outline-none transition-colors;
+}
+
 .btn {
   @apply px-4 py-2 rounded-md border border-line bg-surface hover:border-ink transition-colors text-sm;
 }

@@ -6,3 +6,6 @@ node_modules
 
 .vercel
 .env*
+
+# Playwright screenshots (local verification only)
+shots/

@@ -77,21 +77,25 @@ export const useKadima = create<KadimaState>((set, get) => ({
       set({ tasks: seedTasks(), loaded: true });
       return;
     }
-    // בלי משתמש מחובר ה-RLS יחזיר רשימה ריקה — לא מסמנים loaded,
-    // כדי שהטעינה תרוץ שוב אחרי ההתחברות.
-    const { data: auth } = await supabase.auth.getUser();
-    if (!auth.user) return;
-    const { data: tasks } = await supabase.from(TABLES.tasks).select("*").order("due_date");
-    const { data: steps } = await supabase.from(TABLES.taskSteps).select("*").order("order_index");
-    const byTask = new Map<string, TaskStep[]>();
-    (steps ?? []).forEach((s: TaskStep) => {
-      if (!byTask.has(s.task_id)) byTask.set(s.task_id, []);
-      byTask.get(s.task_id)!.push(s);
-    });
-    set({
-      tasks: (tasks ?? []).map((t: Task) => ({ ...t, steps: byTask.get(t.id) ?? [] })),
-      loaded: true
-    });
+    try {
+      // בלי משתמש מחובר ה-RLS יחזיר רשימה ריקה — לא מסמנים loaded,
+      // כדי שהטעינה תרוץ שוב אחרי ההתחברות.
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) return;
+      const { data: tasks } = await supabase.from(TABLES.tasks).select("*").order("due_date");
+      const { data: steps } = await supabase.from(TABLES.taskSteps).select("*").order("order_index");
+      const byTask = new Map<string, TaskStep[]>();
+      (steps ?? []).forEach((s: TaskStep) => {
+        if (!byTask.has(s.task_id)) byTask.set(s.task_id, []);
+        byTask.get(s.task_id)!.push(s);
+      });
+      set({
+        tasks: (tasks ?? []).map((t: Task) => ({ ...t, steps: byTask.get(t.id) ?? [] })),
+        loaded: true
+      });
+    } catch {
+      // תקלת רשת — משאירים loaded=false כדי שננסה שוב.
+    }
   },
 
   addTask: async (partial = {}) => {
