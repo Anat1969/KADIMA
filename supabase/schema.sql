@@ -56,13 +56,18 @@ create table if not exists kadima.departments (
   created_at timestamptz default now()
 );
 
+-- search_path ריק כדי למנוע חטיפת שם דרך סכמה אחרת.
 create or replace function kadima.update_updated_at()
-returns trigger as $$
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
 begin
   new.updated_at = now();
   return new;
 end;
-$$ language plpgsql;
+$$;
 
 drop trigger if exists tasks_updated_at on kadima.tasks;
 create trigger tasks_updated_at
@@ -105,6 +110,27 @@ grant all on all routines in schema kadima to anon, authenticated, service_role;
 grant all on all sequences in schema kadima to anon, authenticated, service_role;
 alter default privileges for role postgres in schema kadima
   grant all on tables to anon, authenticated, service_role;
+
+-- גשר ל-API: PostgREST חושף רק את public, ולכן הגישה לקדימה היא דרך
+-- views בשם מוקדם kadima_. הנתונים נשארים בסכמה kadima ולעולם לא
+-- יושבים ב-public עצמה. ארבעת השמות האלה היו פנויים — לא נדרסה
+-- שום טבלה של האפליקציה האחרת.
+--
+-- security_invoker=on קריטי: ה-RLS של הטבלה שמתחת נאכף לפי המשתמש
+-- הקורא ולא לפי בעל ה-view. בלי זה ה-view היה עוקף את המדיניות.
+create or replace view public.kadima_tasks
+  with (security_invoker = on) as select * from kadima.tasks;
+create or replace view public.kadima_task_steps
+  with (security_invoker = on) as select * from kadima.task_steps;
+create or replace view public.kadima_activity_log
+  with (security_invoker = on) as select * from kadima.activity_log;
+create or replace view public.kadima_departments
+  with (security_invoker = on) as select * from kadima.departments;
+
+grant select, insert, update, delete
+  on public.kadima_tasks, public.kadima_task_steps,
+     public.kadima_activity_log, public.kadima_departments
+  to anon, authenticated;
 
 -- Realtime: שידור שינויים לכל המכשירים המחוברים.
 do $$

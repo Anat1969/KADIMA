@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import type { Task, TaskStep, TaskStatus, SortKey } from "./types";
-import { supabase, hasSupabase, KADIMA_SCHEMA } from "./supabase/client";
+import { supabase, hasSupabase, KADIMA_SCHEMA, TABLES } from "./supabase/client";
 import { seedTasks } from "./seed";
 import { uid, daysLeft } from "./utils";
 import { STATUS_ORDER } from "./constants";
@@ -81,8 +81,8 @@ export const useKadima = create<KadimaState>((set, get) => ({
     // כדי שהטעינה תרוץ שוב אחרי ההתחברות.
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) return;
-    const { data: tasks } = await supabase.from("tasks").select("*").order("due_date");
-    const { data: steps } = await supabase.from("task_steps").select("*").order("order_index");
+    const { data: tasks } = await supabase.from(TABLES.tasks).select("*").order("due_date");
+    const { data: steps } = await supabase.from(TABLES.taskSteps).select("*").order("order_index");
     const byTask = new Map<string, TaskStep[]>();
     (steps ?? []).forEach((s: TaskStep) => {
       if (!byTask.has(s.task_id)) byTask.set(s.task_id, []);
@@ -101,7 +101,7 @@ export const useKadima = create<KadimaState>((set, get) => ({
     if (supabase) {
       const { steps, ...row } = task;
       const { data: auth } = await supabase.auth.getUser();
-      await supabase.from("tasks").insert({ ...row, user_id: auth.user?.id });
+      await supabase.from(TABLES.tasks).insert({ ...row, user_id: auth.user?.id });
     }
     return task;
   },
@@ -113,14 +113,14 @@ export const useKadima = create<KadimaState>((set, get) => ({
     }));
     if (supabase) {
       const { steps, ...row } = patch as Partial<Task>;
-      await supabase.from("tasks").update(row).eq("id", id);
+      await supabase.from(TABLES.tasks).update(row).eq("id", id);
     }
   },
 
   deleteTask: async (id) => {
     markLocal(id);
     set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) }));
-    if (supabase) await supabase.from("tasks").delete().eq("id", id);
+    if (supabase) await supabase.from(TABLES.tasks).delete().eq("id", id);
   },
 
   toggleStep: async (taskId, stepId) => {
@@ -139,7 +139,7 @@ export const useKadima = create<KadimaState>((set, get) => ({
         };
       })
     }));
-    if (supabase) await supabase.from("task_steps").update({ done: newDone }).eq("id", stepId);
+    if (supabase) await supabase.from(TABLES.taskSteps).update({ done: newDone }).eq("id", stepId);
   },
 
   addStep: async (taskId, title = "שלב חדש") => {
@@ -152,7 +152,7 @@ export const useKadima = create<KadimaState>((set, get) => ({
     set((s) => ({
       tasks: s.tasks.map((t) => (t.id === taskId ? { ...t, steps: [...t.steps, step] } : t))
     }));
-    if (supabase) await supabase.from("task_steps").insert(step);
+    if (supabase) await supabase.from(TABLES.taskSteps).insert(step);
   },
 
   updateStep: async (taskId, stepId, patch) => {
@@ -164,7 +164,7 @@ export const useKadima = create<KadimaState>((set, get) => ({
           : t
       )
     }));
-    if (supabase) await supabase.from("task_steps").update(patch).eq("id", stepId);
+    if (supabase) await supabase.from(TABLES.taskSteps).update(patch).eq("id", stepId);
   },
 
   deleteStep: async (taskId, stepId) => {
@@ -174,7 +174,7 @@ export const useKadima = create<KadimaState>((set, get) => ({
         t.id === taskId ? { ...t, steps: t.steps.filter((st) => st.id !== stepId) } : t
       )
     }));
-    if (supabase) await supabase.from("task_steps").delete().eq("id", stepId);
+    if (supabase) await supabase.from(TABLES.taskSteps).delete().eq("id", stepId);
   },
 
   setFilter: (patch) => set((s) => ({ filters: { ...s.filters, ...patch } })),
@@ -189,7 +189,7 @@ export const useKadima = create<KadimaState>((set, get) => ({
     const client = supabase;
 
     async function refetchSteps(taskId: string) {
-      const { data } = await client.from("task_steps").select("*").eq("task_id", taskId).order("order_index");
+      const { data } = await client.from(TABLES.taskSteps).select("*").eq("task_id", taskId).order("order_index");
       set((s) => ({
         tasks: s.tasks.map((t) => (t.id === taskId ? { ...t, steps: (data ?? []) as TaskStep[] } : t))
       }));

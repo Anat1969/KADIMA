@@ -45,9 +45,15 @@ npm run dev
 ## הפרדת מסד הנתונים — קריטי
 פרויקט ה-Supabase (`neo-gallery-spark`) **משותף עם אפליקציה אחרת** שיושבת בסכמה `public`
 ויש לה טבלת `tasks` משלה עם מבנה שונה. קדימה יושבת בסכמה נפרדת בשם `kadima`.
-- `lib/supabase/client.ts` מגדיר `db: { schema: KADIMA_SCHEMA }` — אל תסירי.
-- מנוי ה-realtime ב-`lib/store.ts` מסנן לפי `KADIMA_SCHEMA` — אל תחזירי ל-`public`.
-- `supabase/schema.sql` כותב רק ל-`kadima`. אל תשני אותו כך שיכתוב ל-`public`.
+- הגישה מה-API היא דרך views בשם מוקדם `kadima_` ב-`public`, כי PostgREST
+  חושף רק את `public`. הנתונים עצמם תמיד בסכמה `kadima`.
+- `lib/supabase/client.ts` מגדיר `TABLES` — כל `.from()` חייב לעבור דרכו.
+  לעולם לא `.from("tasks")`: זו הטבלה של האפליקציה האחרת.
+- ל-views חובה `security_invoker = on`, אחרת ה-RLS נעקף.
+- מנוי ה-realtime ב-`lib/store.ts` מסנן לפי `KADIMA_SCHEMA` על הטבלאות
+  האמיתיות (לא ה-views) — אל תחזירי ל-`public`.
+- `supabase/schema.sql` יוצר טבלאות רק ב-`kadima`. ב-`public` הוא נוגע
+  אך ורק בארבעת ה-views בשם `kadima_*`.
 
 ## הערות תחזוקה
 - `ANTHROPIC_API_KEY` — צד שרת בלבד, לעולם לא בקומפוננטת לקוח ולא עם קידומת `NEXT_PUBLIC_`.
