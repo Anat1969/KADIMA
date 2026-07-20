@@ -74,7 +74,7 @@ export default function TablePage() {
       </div>
 
       <div className="card overflow-x-auto">
-        <table className="w-full text-sm min-w-[1100px]">
+        <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-line text-right">
               {HEADERS.map((h) => (
@@ -96,7 +96,7 @@ export default function TablePage() {
                 <td className="px-2 py-1">
                   <TableImageCell task={t} />
                 </td>
-                <td className="px-2 py-1 min-w-52">
+                <td className="px-2 py-1 min-w-44">
                   <input className="field font-medium" value={t.name} onChange={(e) => updateTask(t.id, { name: e.target.value })} />
                 </td>
                 <td className="px-2 py-1 min-w-32">
@@ -141,7 +141,7 @@ export default function TablePage() {
                 <td className="px-2 py-1">
                   <input type="date" className="field" value={t.due_date} onChange={(e) => updateTask(t.id, { due_date: e.target.value })} />
                 </td>
-                <td className="px-2 py-1 min-w-52">
+                <td className="px-2 py-1 min-w-40">
                   <input className="field" value={t.next_step} onChange={(e) => updateTask(t.id, { next_step: e.target.value })} />
                 </td>
                 <td className="px-2 py-1 text-left whitespace-nowrap">

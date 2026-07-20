@@ -134,10 +134,20 @@ export const useKadima = create<KadimaState>((set, get) => ({
       return;
     }
     try {
-      // בלי משתמש מחובר ה-RLS יחזיר רשימה ריקה — לא מסמנים loaded,
-      // כדי שהטעינה תרוץ שוב מיד אחרי ההתחברות.
-      const { data: auth } = await supabase.auth.getUser();
-      if (!auth.user) return;
+      // אין מסך התחברות. אם אין עדיין session, מנסים כניסה אנונימית —
+      // היא נותנת זהות אמיתית ל-RLS בלי שהמשתמשת תראה מסך כניסה.
+      // כשהיא כבויה ב-Supabase נופלים לנתוני התחלה בזיכרון, ו-demoMode
+      // מדליק את הבאנר שמסביר שהנתונים לא נשמרים.
+      let { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) {
+        await supabase.auth.signInAnonymously();
+        ({ data: auth } = await supabase.auth.getUser());
+      }
+      if (!auth.user) {
+        set({ tasks: seedTasks(), attachments: [], loaded: true, demoMode: true });
+        return;
+      }
+      set({ demoMode: false });
       const { data: tasks } = await supabase.from(TABLES.tasks).select("*").order("due_date");
       const { data: steps } = await supabase.from(TABLES.taskSteps).select("*").order("order_index");
       const { data: files } = await supabase
@@ -161,7 +171,7 @@ export const useKadima = create<KadimaState>((set, get) => ({
     const task = { ...emptyTask(), ...partial };
     markLocal(task.id);
     set((s) => ({ tasks: [task, ...s.tasks] }));
-    if (supabase) {
+    if (supabase && !get().demoMode) {
       const { steps, ...row } = task;
       const { data: auth } = await supabase.auth.getUser();
       await supabase.from(TABLES.tasks).insert({ ...row, user_id: auth.user?.id });
@@ -174,7 +184,8 @@ export const useKadima = create<KadimaState>((set, get) => ({
     set((s) => ({
       tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...patch, updated_at: new Date().toISOString() } : t))
     }));
-    if (supabase) {
+    // במצב הדגמה אין למי לכתוב — לא מתזמנים שמירה ולא מציגים "נשמר".
+    if (supabase && !get().demoMode) {
       const { steps, ...row } = patch as Partial<Task>;
       pendingWrites.set(id, { ...pendingWrites.get(id), ...row });
       const timer = writeTimers.get(id);
@@ -191,7 +202,7 @@ export const useKadima = create<KadimaState>((set, get) => ({
     writeTimers.delete(id);
     pendingWrites.delete(id);
     set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) }));
-    if (supabase) await supabase.from(TABLES.tasks).delete().eq("id", id);
+    if (supabase && !get().demoMode) await supabase.from(TABLES.tasks).delete().eq("id", id);
   },
 
   toggleStep: async (taskId, stepId) => {
@@ -210,7 +221,7 @@ export const useKadima = create<KadimaState>((set, get) => ({
         };
       })
     }));
-    if (supabase) await supabase.from(TABLES.taskSteps).update({ done: newDone }).eq("id", stepId);
+    if (supabase && !get().demoMode) await supabase.from(TABLES.taskSteps).update({ done: newDone }).eq("id", stepId);
   },
 
   addStep: async (taskId, title = "שלב חדש") => {
@@ -223,7 +234,7 @@ export const useKadima = create<KadimaState>((set, get) => ({
     set((s) => ({
       tasks: s.tasks.map((t) => (t.id === taskId ? { ...t, steps: [...t.steps, step] } : t))
     }));
-    if (supabase) await supabase.from(TABLES.taskSteps).insert(step);
+    if (supabase && !get().demoMode) await supabase.from(TABLES.taskSteps).insert(step);
   },
 
   updateStep: async (taskId, stepId, patch) => {
@@ -235,7 +246,7 @@ export const useKadima = create<KadimaState>((set, get) => ({
           : t
       )
     }));
-    if (supabase) await supabase.from(TABLES.taskSteps).update(patch).eq("id", stepId);
+    if (supabase && !get().demoMode) await supabase.from(TABLES.taskSteps).update(patch).eq("id", stepId);
   },
 
   deleteStep: async (taskId, stepId) => {
@@ -245,7 +256,7 @@ export const useKadima = create<KadimaState>((set, get) => ({
         t.id === taskId ? { ...t, steps: t.steps.filter((st) => st.id !== stepId) } : t
       )
     }));
-    if (supabase) await supabase.from(TABLES.taskSteps).delete().eq("id", stepId);
+    if (supabase && !get().demoMode) await supabase.from(TABLES.taskSteps).delete().eq("id", stepId);
   },
 
   uploadAttachment: async (taskId, file) => {
