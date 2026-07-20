@@ -195,4 +195,10 @@ begin
   ) then
     alter publication supabase_realtime add table kadima.task_steps;
   end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'kadima' and tablename = 'attachments'
+  ) then
+    alter publication supabase_realtime add table kadima.attachments;
+  end if;
 end $$;

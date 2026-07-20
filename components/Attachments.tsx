@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useKadima, selectTaskAttachments } from "@/lib/store";
 import type { Attachment } from "@/lib/types";
 
@@ -19,15 +19,21 @@ export default function Attachments({ taskId }: { taskId: string }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [dragging, setDragging] = useState(false);
 
   const images = files.filter((f) => f.mime_type.startsWith("image/"));
   const docs = files.filter((f) => !f.mime_type.startsWith("image/"));
 
-  async function upload(list: FileList | null) {
-    if (!list || list.length === 0) return;
+  async function upload(list: FileList | File[] | null) {
+    const files = list ? Array.from(list) : [];
+    if (files.length === 0) return;
+    if (demoMode) {
+      setError("במצב הדגמה אי אפשר להעלות קבצים — יש להתחבר.");
+      return;
+    }
     setBusy(true);
     setError("");
-    for (const file of Array.from(list)) {
+    for (const file of files) {
       const done = await uploadAttachment(taskId, file);
       if (!done) setError("העלאה נכשלה: " + file.name);
     }
@@ -35,8 +41,40 @@ export default function Attachments({ taskId }: { taskId: string }) {
     if (input.current) input.current.value = "";
   }
 
+  // הדבקה מהלוח (Ctrl+V) — צילומי מסך ותמונות שהועתקו.
+  useEffect(() => {
+    function onPaste(e: ClipboardEvent) {
+      const items = Array.from(e.clipboardData?.items ?? []);
+      const files = items
+        .filter((i) => i.kind === "file")
+        .map((i) => i.getAsFile())
+        .filter((f): f is File => f !== null);
+      if (files.length > 0) {
+        e.preventDefault();
+        upload(files);
+      }
+    }
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskId, demoMode]);
+
   return (
-    <section className="card p-4 space-y-4">
+    <section
+      className={
+        "card p-4 space-y-4 transition-colors " + (dragging ? "border-accent bg-accentSoft" : "")
+      }
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragging(false);
+        upload(e.dataTransfer.files);
+      }}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-draft">מסמכים ותמונות</h2>
         <input
@@ -109,7 +147,9 @@ export default function Attachments({ taskId }: { taskId: string }) {
       )}
 
       {files.length === 0 && !demoMode && (
-        <div className="text-sm text-draft">אין קבצים מצורפים עדיין.</div>
+        <div className="text-sm text-draft">
+          אין קבצים עדיין. אפשר לגרור לכאן קבצים, להדביק תמונה מהלוח, או ללחוץ על העלאת קבצים.
+        </div>
       )}
     </section>
   );

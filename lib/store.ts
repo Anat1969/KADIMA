@@ -54,6 +54,49 @@ function markLocal(id: string) {
   localWrites.set(id, Date.now());
 }
 
+// כתיבה בהקלדה: צוברים את השינויים ושולחים אחרי הפסקה קצרה, כדי שלא
+// תישלח פנייה לשרת בכל תו. השדות האחרונים תמיד מנצחים.
+const pendingWrites = new Map<string, Partial<Task>>();
+const writeTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const WRITE_DELAY_MS = 600;
+
+// מנוי חיצוני למצב השמירה, כדי שהממשק יוכל להציג "נשמר".
+type SaveState = "idle" | "saving" | "saved" | "error";
+let saveState: SaveState = "idle";
+const saveListeners = new Set<(s: SaveState) => void>();
+
+function setSaveState(next: SaveState) {
+  saveState = next;
+  saveListeners.forEach((fn) => fn(next));
+}
+
+export function getSaveState() {
+  return saveState;
+}
+
+export function onSaveStateChange(fn: (s: SaveState) => void) {
+  saveListeners.add(fn);
+  return () => {
+    saveListeners.delete(fn);
+  };
+}
+
+async function flushWrite(id: string) {
+  const patch = pendingWrites.get(id);
+  pendingWrites.delete(id);
+  writeTimers.delete(id);
+  if (!patch || !supabase) return;
+  markLocal(id);
+  setSaveState("saving");
+  const { error } = await supabase.from(TABLES.tasks).update(patch).eq("id", id);
+  setSaveState(error ? "error" : "saved");
+}
+
+// שמירה מיידית של כל מה שממתין — לפני סגירת הדף.
+export async function flushPendingWrites() {
+  await Promise.all(Array.from(pendingWrites.keys()).map(flushWrite));
+}
+
 function isEcho(id: string): boolean {
   const at = localWrites.get(id);
   if (at === undefined) return false;
@@ -133,12 +176,20 @@ export const useKadima = create<KadimaState>((set, get) => ({
     }));
     if (supabase) {
       const { steps, ...row } = patch as Partial<Task>;
-      await supabase.from(TABLES.tasks).update(row).eq("id", id);
+      pendingWrites.set(id, { ...pendingWrites.get(id), ...row });
+      const timer = writeTimers.get(id);
+      if (timer) clearTimeout(timer);
+      writeTimers.set(id, setTimeout(() => flushWrite(id), WRITE_DELAY_MS));
     }
   },
 
   deleteTask: async (id) => {
     markLocal(id);
+    // ביטול כתיבה שממתינה, כדי שלא תישלח אחרי המחיקה.
+    const timer = writeTimers.get(id);
+    if (timer) clearTimeout(timer);
+    writeTimers.delete(id);
+    pendingWrites.delete(id);
     set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) }));
     if (supabase) await supabase.from(TABLES.tasks).delete().eq("id", id);
   },
@@ -208,6 +259,7 @@ export const useKadima = create<KadimaState>((set, get) => ({
       id: uid(), task_id: taskId, name: file.name, path, url: pub.publicUrl,
       mime_type: file.type, size_bytes: file.size
     };
+    markLocal(row.id);
     const { error: insertError } = await supabase.from(TABLES.attachments).insert(row);
     if (insertError) {
       // ניקוי הקובץ כדי שלא יישאר יתום באחסון.
@@ -219,6 +271,7 @@ export const useKadima = create<KadimaState>((set, get) => ({
   },
 
   deleteAttachment: async (id) => {
+    markLocal(id);
     const item = get().attachments.find((a) => a.id === id);
     set((s) => ({ attachments: s.attachments.filter((a) => a.id !== id) }));
     if (supabase && item) {
@@ -271,6 +324,22 @@ export const useKadima = create<KadimaState>((set, get) => ({
         const row = (payload.new ?? payload.old) as TaskStep;
         if (!row?.task_id || isEcho(row.task_id)) return;
         refetchSteps(row.task_id);
+      })
+      .on("postgres_changes", { event: "*", schema: KADIMA_SCHEMA, table: "attachments" }, (payload) => {
+        const row = (payload.new ?? payload.old) as Attachment;
+        if (!row?.id || isEcho(row.id)) return;
+        if (payload.eventType === "DELETE") {
+          set((s) => ({ attachments: s.attachments.filter((a) => a.id !== row.id) }));
+          return;
+        }
+        set((s) => {
+          const exists = s.attachments.some((a) => a.id === row.id);
+          return {
+            attachments: exists
+              ? s.attachments.map((a) => (a.id === row.id ? row : a))
+              : [...s.attachments, row]
+          };
+        });
       })
       .subscribe();
 

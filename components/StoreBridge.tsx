@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useKadima } from "@/lib/store";
+import { useKadima, flushPendingWrites } from "@/lib/store";
 import { supabase } from "@/lib/supabase/client";
 
 // טוען את הנתונים, מחזיק את מנוי ה-realtime, ומרענן בכל שינוי התחברות.
@@ -24,7 +24,17 @@ export default function StoreBridge() {
       }
     });
 
+    // סגירת הדף באמצע הקלדה — שולחים מיד את מה שממתין.
+    const onHide = () => {
+      if (document.visibilityState === "hidden") flushPendingWrites();
+    };
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", flushPendingWrites);
+
     return () => {
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", flushPendingWrites);
+      flushPendingWrites();
       sub.subscription.unsubscribe();
       unsubscribe();
     };

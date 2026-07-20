@@ -5,6 +5,7 @@ import DemoBanner from "@/components/DemoBanner";
 import StoreBridge from "@/components/StoreBridge";
 import AuthGate from "@/components/AuthGate";
 import SignOut from "@/components/SignOut";
+import SaveIndicator from "@/components/SaveIndicator";
 
 export const metadata: Metadata = {
   title: "קדימה — ניהול משימות ויוזמות",
@@ -22,7 +23,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <h1 className="text-2xl font-semibold tracking-tight">קדימה</h1>
               <p className="text-sm text-draft mt-1">תמיד צעד אחד לפני</p>
             </div>
-            <SignOut />
+            <div className="flex items-center gap-3">
+              <SaveIndicator />
+              <SignOut />
+            </div>
           </header>
           <AuthGate>
             <NavTabs />
