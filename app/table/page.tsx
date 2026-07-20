@@ -3,11 +3,14 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useKadima, selectVisibleTasks, selectDepartments } from "@/lib/store";
-import { STATUS_MAP, TYPE_MAP } from "@/lib/constants";
-import type { SortKey, TaskStatus, TaskType } from "@/lib/types";
+import { useRef, useState } from "react";
+import { STATUS_MAP, TYPE_MAP, CATEGORIES } from "@/lib/constants";
+import type { SortKey, TaskStatus, TaskType, Task } from "@/lib/types";
 
-const HEADERS: { key: SortKey | "next_step"; label: string; sortable: boolean }[] = [
+const HEADERS: { key: SortKey | "next_step" | "image"; label: string; sortable: boolean }[] = [
+  { key: "image", label: "תמונה", sortable: false },
   { key: "name", label: "משימה", sortable: true },
+  { key: "category", label: "קטגוריה", sortable: true },
   { key: "department", label: "מינהל", sortable: true },
   { key: "contact", label: "איש קשר", sortable: true },
   { key: "type", label: "סוג", sortable: true },
@@ -55,12 +58,23 @@ export default function TablePage() {
             <option key={d} value={d}>{d}</option>
           ))}
         </select>
+        <select
+          className="field border-line max-w-40"
+          value={filters.category}
+          onChange={(e) => setFilter({ category: e.target.value })}
+        >
+          <option value="">כל הקטגוריות</option>
+          {CATEGORIES.map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
         <div className="flex-1" />
+        <Link href="/gallery" className="btn">גלריה</Link>
         <button className="btn-primary" onClick={() => addTask()}>רשומה חדשה</button>
       </div>
 
       <div className="card overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm min-w-[1100px]">
           <thead>
             <tr className="border-b border-line text-right">
               {HEADERS.map((h) => (
@@ -79,8 +93,23 @@ export default function TablePage() {
           <tbody>
             {tasks.map((t) => (
               <tr key={t.id} className="border-b border-line last:border-0 align-top">
+                <td className="px-2 py-1">
+                  <TableImageCell task={t} />
+                </td>
                 <td className="px-2 py-1 min-w-52">
                   <input className="field font-medium" value={t.name} onChange={(e) => updateTask(t.id, { name: e.target.value })} />
+                </td>
+                <td className="px-2 py-1 min-w-32">
+                  <select
+                    className="field"
+                    value={t.category}
+                    onChange={(e) => updateTask(t.id, { category: e.target.value })}
+                  >
+                    <option value="">ללא</option>
+                    {CATEGORIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
                 </td>
                 <td className="px-2 py-1 min-w-36">
                   <input className="field" value={t.department} onChange={(e) => updateTask(t.id, { department: e.target.value })} />
@@ -129,6 +158,45 @@ export default function TablePage() {
         </table>
         {tasks.length === 0 && <div className="p-6 text-sm text-draft text-center">אין רשומות תואמות.</div>}
       </div>
+    </div>
+  );
+}
+
+function TableImageCell({ task }: { task: Task }) {
+  const setTaskImage = useKadima((s) => s.setTaskImage);
+  const demoMode = useKadima((s) => s.demoMode);
+  const input = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function pick(file: File | undefined) {
+    if (!file) return;
+    setBusy(true);
+    await setTaskImage(task.id, file);
+    setBusy(false);
+  }
+
+  return (
+    <div className="w-14">
+      <input
+        ref={input}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => pick(e.target.files?.[0])}
+      />
+      <button
+        onClick={() => input.current?.click()}
+        disabled={demoMode || busy}
+        title={demoMode ? "העלאת תמונות דורשת התחברות" : "החלפת תמונה"}
+        className="block w-14 h-14 rounded border border-line overflow-hidden bg-paper hover:border-ink transition-colors disabled:cursor-not-allowed"
+      >
+        {task.image_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={task.image_url} alt={task.name} className="w-full h-full object-cover" />
+        ) : (
+          <span className="text-xs text-draft">{busy ? "טוען" : "הוספה"}</span>
+        )}
+      </button>
     </div>
   );
 }

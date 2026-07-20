@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useKadima, selectStats } from "@/lib/store";
 import { daysLeft, daysLeftLabel } from "@/lib/utils";
 import Badge from "@/components/Badge";
-import { TYPE_MAP } from "@/lib/constants";
+import { TYPE_MAP, CATEGORIES } from "@/lib/constants";
 import type { Task, TaskType } from "@/lib/types";
 
 interface Understood {
@@ -16,6 +16,7 @@ interface Understood {
   due_date: string;
   next_step: string;
   type: TaskType;
+  category: string;
   raw_material: string;
 }
 
@@ -81,6 +82,7 @@ export default function FeedPage() {
       start_date: understood.start_date || today,
       due_date: understood.due_date || today,
       next_step: understood.next_step,
+      category: understood.category,
       raw_material: understood.raw_material,
       status: "draft"
     });
@@ -130,6 +132,19 @@ export default function FeedPage() {
                 >
                   {Object.entries(TYPE_MAP).map(([k, v]) => (
                     <option key={k} value={k}>{v}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="block text-xs text-draft mb-1">קטגוריה</span>
+                <select
+                  className="field"
+                  value={understood.category}
+                  onChange={(e) => setUnderstood({ ...understood, category: e.target.value })}
+                >
+                  <option value="">ללא</option>
+                  {CATEGORIES.map((c) => (
+                    <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
               </label>

@@ -31,6 +31,24 @@ create table if not exists kadima.tasks (
   updated_at timestamptz default now()
 );
 
+-- קטגוריה ותמונה ראשית (למסד קיים — נוספות בדיעבד).
+alter table kadima.tasks add column if not exists category text default '';
+alter table kadima.tasks add column if not exists image_url text default '';
+create index if not exists tasks_category_idx on kadima.tasks(category);
+
+-- מסמכים ותמונות המצורפים לרשומה. הקבצים עצמם בדלי kadima-files.
+create table if not exists kadima.attachments (
+  id uuid primary key default gen_random_uuid(),
+  task_id uuid not null references kadima.tasks(id) on delete cascade,
+  name text not null,
+  path text not null,
+  url text not null,
+  mime_type text default '',
+  size_bytes bigint default 0,
+  created_at timestamptz default now()
+);
+create index if not exists attachments_task_id_idx on kadima.attachments(task_id);
+
 create table if not exists kadima.task_steps (
   id uuid primary key default gen_random_uuid(),
   task_id uuid not null references kadima.tasks(id) on delete cascade,
@@ -99,6 +117,14 @@ create policy "Own activity log" on kadima.activity_log for all
   using (exists (select 1 from kadima.tasks t where t.id = activity_log.task_id and t.user_id = auth.uid()))
   with check (exists (select 1 from kadima.tasks t where t.id = activity_log.task_id and t.user_id = auth.uid()));
 
+alter table kadima.attachments enable row level security;
+drop policy if exists "Own attachments" on kadima.attachments;
+create policy "Own attachments" on kadima.attachments for all
+  using (exists (select 1 from kadima.tasks t
+                 where t.id = attachments.task_id and t.user_id = auth.uid()))
+  with check (exists (select 1 from kadima.tasks t
+                      where t.id = attachments.task_id and t.user_id = auth.uid()));
+
 drop policy if exists "Read departments" on kadima.departments;
 create policy "Read departments" on kadima.departments for select
   using (auth.role() = 'authenticated');
@@ -126,11 +152,33 @@ create or replace view public.kadima_activity_log
   with (security_invoker = on) as select * from kadima.activity_log;
 create or replace view public.kadima_departments
   with (security_invoker = on) as select * from kadima.departments;
+create or replace view public.kadima_attachments
+  with (security_invoker = on) as select * from kadima.attachments;
 
 grant select, insert, update, delete
   on public.kadima_tasks, public.kadima_task_steps,
-     public.kadima_activity_log, public.kadima_departments
+     public.kadima_activity_log, public.kadima_departments,
+     public.kadima_attachments
   to anon, authenticated;
+
+-- אחסון קבצים: דלי נפרד לקדימה. קריאה פתוחה (הגלריה מציגה דרך URL),
+-- כתיבה ומחיקה רק למשתמש מחובר.
+insert into storage.buckets (id, name, public)
+values ('kadima-files', 'kadima-files', true)
+on conflict (id) do nothing;
+
+drop policy if exists "kadima files read" on storage.objects;
+create policy "kadima files read" on storage.objects for select
+  using (bucket_id = 'kadima-files');
+drop policy if exists "kadima files insert" on storage.objects;
+create policy "kadima files insert" on storage.objects for insert
+  to authenticated with check (bucket_id = 'kadima-files');
+drop policy if exists "kadima files update" on storage.objects;
+create policy "kadima files update" on storage.objects for update
+  to authenticated using (bucket_id = 'kadima-files');
+drop policy if exists "kadima files delete" on storage.objects;
+create policy "kadima files delete" on storage.objects for delete
+  to authenticated using (bucket_id = 'kadima-files');
 
 -- Realtime: שידור שינויים לכל המכשירים המחוברים.
 do $$

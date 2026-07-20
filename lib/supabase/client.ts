@@ -18,7 +18,8 @@ export const TABLES = {
   tasks: "kadima_tasks",
   taskSteps: "kadima_task_steps",
   activityLog: "kadima_activity_log",
-  departments: "kadima_departments"
+  departments: "kadima_departments",
+  attachments: "kadima_attachments"
 } as const;
 
 export const supabase = hasSupabase

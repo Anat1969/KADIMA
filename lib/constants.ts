@@ -15,3 +15,15 @@ export const TYPE_MAP: Record<TaskType, string> = {
 };
 
 export const STATUS_ORDER: TaskStatus[] = ["delayed", "ready", "in_progress", "waiting", "draft", "done"];
+
+// קטגוריות העבודה. להוספת קטגוריה — כאן בלבד.
+export const CATEGORIES = [
+  "מדיניות",
+  "פיסול",
+  "תוכניות אב",
+  "קול קורא",
+  "שילוט",
+  "מרחב ציבורי"
+] as const;
+
+export const STORAGE_BUCKET = "kadima-files";

@@ -10,12 +10,25 @@ export interface TaskStep {
   order_index: number;
 }
 
+export interface Attachment {
+  id: string;
+  task_id: string;
+  name: string;
+  path: string;
+  url: string;
+  mime_type: string;
+  size_bytes: number;
+  created_at?: string;
+}
+
 export interface Task {
   id: string;
   user_id?: string;
   name: string;
   department: string;
   contact: string;
+  category: string;
+  image_url: string;
   type: TaskType;
   status: TaskStatus;
   start_date: string;
@@ -28,4 +41,6 @@ export interface Task {
   updated_at: string;
 }
 
-export type SortKey = "name" | "department" | "contact" | "type" | "status" | "start_date" | "due_date";
+export type SortKey =
+  | "name" | "department" | "contact" | "category"
+  | "type" | "status" | "start_date" | "due_date";

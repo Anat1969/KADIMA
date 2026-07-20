@@ -7,6 +7,7 @@ const TABS = [
   { href: "/", label: "זרימה" },
   { href: "/table", label: "טבלה" },
   { href: "/map", label: "מפת עבודה" },
+  { href: "/gallery", label: "גלריה" },
   { href: "/report", label: "דוח למנכ\"ל" }
 ];
 
@@ -15,7 +16,8 @@ export default function NavTabs() {
   return (
     <nav className="flex gap-1 border-b border-line">
       {TABS.map((t) => {
-        const active = path === t.href;
+        // תת-מסכים (למשל /gallery/שילוט) מדגישים את הלשונית שלהם.
+        const active = t.href === "/" ? path === "/" : path.startsWith(t.href);
         return (
           <Link
             key={t.href}

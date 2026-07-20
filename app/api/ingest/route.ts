@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
+import { CATEGORIES } from "@/lib/constants";
 
 const SCHEMA = {
   type: "object",
@@ -10,9 +11,14 @@ const SCHEMA = {
     start_date: { type: "string", description: "תאריך התחלה בפורמט YYYY-MM-DD, או מחרוזת ריקה" },
     due_date: { type: "string", description: "תאריך יעד בפורמט YYYY-MM-DD, או מחרוזת ריקה" },
     next_step: { type: "string", description: "הצעד הבא הקונקרטי שצריך לעשות" },
-    type: { type: "string", enum: ["external", "initiative"], description: "משימה חיצונית או יוזמה" }
+    type: { type: "string", enum: ["external", "initiative"], description: "משימה חיצונית או יוזמה" },
+    category: {
+      type: "string",
+      enum: [...CATEGORIES, ""],
+      description: "הקטגוריה המתאימה, או מחרוזת ריקה אם אף אחת לא מתאימה"
+    }
   },
-  required: ["name", "department", "contact", "start_date", "due_date", "next_step", "type"],
+  required: ["name", "department", "contact", "start_date", "due_date", "next_step", "type", "category"],
   additionalProperties: false
 } as const;
 

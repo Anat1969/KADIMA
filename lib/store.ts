@@ -1,20 +1,28 @@
 "use client";
 
 import { create } from "zustand";
-import type { Task, TaskStep, TaskStatus, SortKey } from "./types";
+import type { Task, TaskStep, TaskStatus, SortKey, Attachment } from "./types";
 import { supabase, hasSupabase, KADIMA_SCHEMA, TABLES } from "./supabase/client";
 import { seedTasks } from "./seed";
 import { uid, daysLeft } from "./utils";
-import { STATUS_ORDER } from "./constants";
+import { STATUS_ORDER, STORAGE_BUCKET } from "./constants";
+
+// שמות קבצים בעברית שוברים נתיבי אחסון — משאירים תווים בטוחים בלבד.
+function sanitizeName(name: string): string {
+  const clean = name.normalize("NFC").replace(/[^\w.\-]+/g, "_").replace(/_+/g, "_");
+  return clean.length > 1 ? clean.slice(-80) : "file";
+}
 
 interface Filters {
   status: TaskStatus | "all";
   department: string;
+  category: string;
   search: string;
 }
 
 interface KadimaState {
   tasks: Task[];
+  attachments: Attachment[];
   loaded: boolean;
   demoMode: boolean;
   filters: Filters;
@@ -29,6 +37,9 @@ interface KadimaState {
   addStep: (taskId: string, title?: string) => Promise<void>;
   updateStep: (taskId: string, stepId: string, patch: Partial<TaskStep>) => Promise<void>;
   deleteStep: (taskId: string, stepId: string) => Promise<void>;
+  uploadAttachment: (taskId: string, file: File) => Promise<Attachment | null>;
+  deleteAttachment: (id: string) => Promise<void>;
+  setTaskImage: (taskId: string, file: File) => Promise<void>;
   setFilter: (patch: Partial<Filters>) => void;
   setSort: (key: SortKey) => void;
   subscribe: () => () => void;
@@ -57,7 +68,8 @@ function emptyTask(): Task {
   const id = uid();
   const today = new Date().toISOString().slice(0, 10);
   return {
-    id, name: "משימה חדשה", department: "", contact: "", type: "external", status: "draft",
+    id, name: "משימה חדשה", department: "", contact: "", category: "", image_url: "",
+    type: "external", status: "draft",
     start_date: today, due_date: today, raw_material: "", deliverable: "", notes: "",
     next_step: "", steps: [], updated_at: new Date().toISOString()
   };
@@ -65,9 +77,10 @@ function emptyTask(): Task {
 
 export const useKadima = create<KadimaState>((set, get) => ({
   tasks: [],
+  attachments: [],
   loaded: false,
   demoMode: !hasSupabase,
-  filters: { status: "all", department: "", search: "" },
+  filters: { status: "all", department: "", category: "", search: "" },
   sortKey: "due_date",
   sortAsc: true,
 
@@ -78,15 +91,14 @@ export const useKadima = create<KadimaState>((set, get) => ({
       return;
     }
     try {
-      // בלי משתמש מחובר ה-RLS יחזיר רשימה ריקה. במקום מסך ריק —
-      // נופלים לנתוני הדגמה, כך שהאפליקציה תמיד שמישה.
+      // בלי משתמש מחובר ה-RLS יחזיר רשימה ריקה — לא מסמנים loaded,
+      // כדי שהטעינה תרוץ שוב מיד אחרי ההתחברות.
       const { data: auth } = await supabase.auth.getUser();
-      if (!auth.user) {
-        set({ tasks: seedTasks(), loaded: true, demoMode: true });
-        return;
-      }
+      if (!auth.user) return;
       const { data: tasks } = await supabase.from(TABLES.tasks).select("*").order("due_date");
       const { data: steps } = await supabase.from(TABLES.taskSteps).select("*").order("order_index");
+      const { data: files } = await supabase
+        .from(TABLES.attachments).select("*").order("created_at");
       const byTask = new Map<string, TaskStep[]>();
       (steps ?? []).forEach((s: TaskStep) => {
         if (!byTask.has(s.task_id)) byTask.set(s.task_id, []);
@@ -94,6 +106,7 @@ export const useKadima = create<KadimaState>((set, get) => ({
       });
       set({
         tasks: (tasks ?? []).map((t: Task) => ({ ...t, steps: byTask.get(t.id) ?? [] })),
+        attachments: (files ?? []) as Attachment[],
         loaded: true
       });
     } catch {
@@ -184,6 +197,41 @@ export const useKadima = create<KadimaState>((set, get) => ({
     if (supabase) await supabase.from(TABLES.taskSteps).delete().eq("id", stepId);
   },
 
+  uploadAttachment: async (taskId, file) => {
+    if (!supabase) return null;
+    const path = `${taskId}/${Date.now()}-${sanitizeName(file.name)}`;
+    const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(path, file);
+    if (error) return null;
+
+    const { data: pub } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+    const row: Attachment = {
+      id: uid(), task_id: taskId, name: file.name, path, url: pub.publicUrl,
+      mime_type: file.type, size_bytes: file.size
+    };
+    const { error: insertError } = await supabase.from(TABLES.attachments).insert(row);
+    if (insertError) {
+      // ניקוי הקובץ כדי שלא יישאר יתום באחסון.
+      await supabase.storage.from(STORAGE_BUCKET).remove([path]);
+      return null;
+    }
+    set((s) => ({ attachments: [...s.attachments, row] }));
+    return row;
+  },
+
+  deleteAttachment: async (id) => {
+    const item = get().attachments.find((a) => a.id === id);
+    set((s) => ({ attachments: s.attachments.filter((a) => a.id !== id) }));
+    if (supabase && item) {
+      await supabase.storage.from(STORAGE_BUCKET).remove([item.path]);
+      await supabase.from(TABLES.attachments).delete().eq("id", id);
+    }
+  },
+
+  setTaskImage: async (taskId, file) => {
+    const uploaded = await get().uploadAttachment(taskId, file);
+    if (uploaded) await get().updateTask(taskId, { image_url: uploaded.url });
+  },
+
   setFilter: (patch) => set((s) => ({ filters: { ...s.filters, ...patch } })),
 
   setSort: (key) =>
@@ -237,9 +285,10 @@ export function selectVisibleTasks(s: KadimaState): Task[] {
   let out = tasks.filter((t) => {
     if (filters.status !== "all" && t.status !== filters.status) return false;
     if (filters.department && t.department !== filters.department) return false;
+    if (filters.category && t.category !== filters.category) return false;
     if (filters.search) {
       const q = filters.search;
-      const hay = [t.name, t.department, t.contact, t.next_step, t.notes].join(" ");
+      const hay = [t.name, t.department, t.contact, t.category, t.next_step, t.notes].join(" ");
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -271,4 +320,24 @@ export function selectStats(s: KadimaState) {
 
 export function selectDepartments(s: KadimaState): string[] {
   return Array.from(new Set(s.tasks.map((t) => t.department).filter(Boolean)));
+}
+
+export function selectTaskAttachments(taskId: string) {
+  return (s: KadimaState): Attachment[] => s.attachments.filter((a) => a.task_id === taskId);
+}
+
+// כל התמונות של קטגוריה — התמונה הראשית של כל רשומה והקבצים המצורפים לה.
+export function selectCategoryImages(category: string) {
+  return (s: KadimaState) => {
+    const tasks = s.tasks.filter((t) => t.category === category);
+    const ids = new Set(tasks.map((t) => t.id));
+    const byTask = new Map(tasks.map((t) => [t.id, t.name]));
+    const fromAttachments = s.attachments
+      .filter((a) => ids.has(a.task_id) && a.mime_type.startsWith("image/"))
+      .map((a) => ({ url: a.url, name: a.name, taskId: a.task_id, taskName: byTask.get(a.task_id) ?? "" }));
+    const fromCovers = tasks
+      .filter((t) => t.image_url && !fromAttachments.some((f) => f.url === t.image_url))
+      .map((t) => ({ url: t.image_url, name: t.name, taskId: t.id, taskName: t.name }));
+    return [...fromCovers, ...fromAttachments];
+  };
 }

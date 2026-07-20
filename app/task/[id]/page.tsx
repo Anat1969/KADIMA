@@ -6,7 +6,8 @@ import Link from "next/link";
 import { useKadima } from "@/lib/store";
 import Badge from "@/components/Badge";
 import DraftBox from "@/components/DraftBox";
-import { STATUS_MAP, TYPE_MAP } from "@/lib/constants";
+import Attachments from "@/components/Attachments";
+import { STATUS_MAP, TYPE_MAP, CATEGORIES } from "@/lib/constants";
 import { daysLeftLabel } from "@/lib/utils";
 import type { TaskStatus, TaskType } from "@/lib/types";
 
@@ -69,6 +70,18 @@ export default function TaskPage() {
             value={task.contact}
             onChange={(e) => updateTask(task.id, { contact: e.target.value })}
           />
+        </Field>
+        <Field label="קטגוריה">
+          <select
+            className="field"
+            value={task.category}
+            onChange={(e) => updateTask(task.id, { category: e.target.value })}
+          >
+            <option value="">ללא</option>
+            {CATEGORIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
         </Field>
         <Field label="סוג">
           <select
@@ -188,6 +201,8 @@ export default function TaskPage() {
           />
         </Field>
       </section>
+
+      <Attachments taskId={task.id} />
 
       <DraftBox task={task} />
 
