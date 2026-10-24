@@ -13,6 +13,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="he" dir="rtl">
+      <head>
+        <script src="https://appofapp-gh.vercel.app/ai-menu.js"></script>
+      </head>
       <body>
         <StoreBridge />
         <div className="max-w-6xl mx-auto px-4 pb-16">
@@ -21,7 +24,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <h1 className="text-2xl font-semibold tracking-tight">קדימה</h1>
               <p className="text-sm text-draft mt-1">תמיד צעד אחד לפני</p>
             </div>
-            <SaveIndicator />
+            <div className="flex items-center gap-3">
+              <SaveIndicator />
+              <ai-menu />
+            </div>
           </header>
           <NavTabs />
           <DemoBanner />
